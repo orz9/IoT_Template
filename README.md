@@ -1,4 +1,14 @@
-Modifications done for TFT_eSPI User_Setup.h file:
+## Description
+This project aims to develop an IoT template for small scale IoT project deployment by using ESP32.
+
+## Requirements
+PlatformIO
+
+## Libraries
+TFT_eSPI
+XPI2046_Touchscreen
+
+## Modifications done for TFT_eSPI/User_Setup.h file
 
 UNCOMMENT line 88, #define TFT_WIDTH 240
 UNCOMMENT line 92, #define TFT_HEIGHT 320
