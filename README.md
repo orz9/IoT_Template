@@ -79,3 +79,114 @@ private:
 // End
 };
 ```
+## Modifications done for XPT2046_Touchscreen/XPT2046_Touchscreen.cpp
+```c++
+// Modified XPT_Touchscreen::begin()
+bool XPT2046_Touchscreen::begin(SPIClass &wspi) // Added argument
+{
+	// Added the following
+	_pspi = &wspi;
+	_pspi->begin();
+	// End
+	pinMode(csPin, OUTPUT);
+	digitalWrite(csPin, HIGH);
+	if (255 != tirqPin) {
+		pinMode( tirqPin, INPUT );
+		attachInterrupt(digitalPinToInterrupt(tirqPin), isrPin, FALLING);
+		isrPinptr = this;
+	}
+	return true;
+}
+
+// Added the following
+#if defined(_FLEXIO_SPI_H_)
+#define FLEXSPI_SETTING     FlexIOSPISettings(2000000, MSBFIRST, SPI_MODE0)
+bool XPT2046_Touchscreen::begin(FlexIOSPI &wflexspi)
+{
+	_pspi = nullptr; // make sure we dont use this one... 
+	_pflexspi = &wflexspi;
+	_pflexspi->begin();
+	pinMode(csPin, OUTPUT);
+	digitalWrite(csPin, HIGH);
+	if (255 != tirqPin) {
+		pinMode( tirqPin, INPUT );
+		attachInterrupt(digitalPinToInterrupt(tirqPin), isrPin, FALLING);
+		isrPinptr = this;
+	}
+	return true;
+}
+#endif
+// End
+```
+```c++
+/* Modified XPT2046_Touchscreen::update()
+ * Due to the significant changes made, I will not elaborate in details
+*/
+void XPT2046_Touchscreen::update()
+{
+	int16_t data[6];
+	int z; // Added
+	if (!isrWake) return;
+	uint32_t now = millis();
+	if (now - msraw < MSEC_THRESHOLD) return;
+	if (_pspi) {
+		_pspi->beginTransaction(SPI_SETTING);
+		digitalWrite(csPin, LOW);
+		_pspi->transfer(0xB1 /* Z1 */);
+		int16_t z1 = _pspi->transfer16(0xC1 /* Z2 */) >> 3;
+		z = z1 + 4095;
+		int16_t z2 = _pspi->transfer16(0x91 /* X */) >> 3;
+		z -= z2;
+		if (z >= Z_THRESHOLD) {
+			_pspi->transfer16(0x91 /* X */);  // dummy X measure, 1st is always noisy
+			data[0] = _pspi->transfer16(0xD1 /* Y */) >> 3;
+			data[1] = _pspi->transfer16(0x91 /* X */) >> 3; // make 3 x-y measurements
+			data[2] = _pspi->transfer16(0xD1 /* Y */) >> 3;
+			data[3] = _pspi->transfer16(0x91 /* X */) >> 3;
+		}
+		else data[0] = data[1] = data[2] = data[3] = 0;	// Compiler warns these values may be used unset on early exit.
+		data[4] = _pspi->transfer16(0xD0 /* Y */) >> 3;	// Last Y touch power down
+		data[5] = _pspi->transfer16(0) >> 3;
+		digitalWrite(csPin, HIGH);
+		_pspi->endTransaction();
+	}	
+#if defined(_FLEXIO_SPI_H_)
+	else if (_pflexspi) {
+		_pflexspi->beginTransaction(FLEXSPI_SETTING);
+		digitalWrite(csPin, LOW);
+		_pflexspi->transfer(0xB1 /* Z1 */);
+		int16_t z1 = _pflexspi->transfer16(0xC1 /* Z2 */) >> 3;
+		z = z1 + 4095;
+		int16_t z2 = _pflexspi->transfer16(0x91 /* X */) >> 3;
+		z -= z2;
+		if (z >= Z_THRESHOLD) {
+			_pflexspi->transfer16(0x91 /* X */);  // dummy X measure, 1st is always noisy
+			data[0] = _pflexspi->transfer16(0xD1 /* Y */) >> 3;
+			data[1] = _pflexspi->transfer16(0x91 /* X */) >> 3; // make 3 x-y measurements
+			data[2] = _pflexspi->transfer16(0xD1 /* Y */) >> 3;
+			data[3] = _pflexspi->transfer16(0x91 /* X */) >> 3;
+		}
+		else data[0] = data[1] = data[2] = data[3] = 0;	// Compiler warns these values may be used unset on early exit.
+		data[4] = _pflexspi->transfer16(0xD0 /* Y */) >> 3;	// Last Y touch power down
+		data[5] = _pflexspi->transfer16(0) >> 3;
+		digitalWrite(csPin, HIGH);
+		_pflexspi->endTransaction();
+
+	}
+#endif
+	// If we do not have either _pspi or _pflexspi than bail. 
+	else return;
+
+	//Serial.printf("z=%d  ::  z1=%d,  z2=%d  ", z, z1, z2);
+	if (z < 0) z = 0;
+	if (z < Z_THRESHOLD) { //	if ( !touched ) {
+		// Serial.println();
+		zraw = 0;
+		if (z < Z_THRESHOLD_INT) { //	if ( !touched ) {
+			if (255 != tirqPin) isrWake = false;
+		}
+		return;
+	}
+	zraw = z;
+// End
+```
