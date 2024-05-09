@@ -15,8 +15,8 @@ TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 SPIClass touchscreenSPI = SPIClass(VSPI);
 XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
 
-#define SCREEN_WIDTH 320;
-#define SCREEN_HEIGHT 240;
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 240
 #define FONT_SIZE 2
 
 int x, y, z; // Touchscreen coordinates: (x, y) and pressure (z)
