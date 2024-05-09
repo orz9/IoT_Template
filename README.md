@@ -30,3 +30,52 @@ ADD line 220, #define TOUCH_CS 33 <br />
 COMMENT line 364, #define SPI_FREQUENCY 27000000 <br />
 UNCOMMENT line 366, #define SPI_FREQUENCY 55000000 <br />
 UNCOMMENT line 378, #define USE_HSPI_PORT
+
+## Modifications done for XPT2046_Touchscreen/XPT2046_Touchscreen.h
+```c
+#include "Arduino.h"
+#include <SPI.h>
+// Added the following
+#if defined(__IMXRT1062__)
+#if __has_include(<FlexIOSPI.h>)
+	#include <FlexIOSPI.h>
+#endif
+#endif
+// End
+```
+```c
+// Modified class XPT2046_Touchscreen
+class XPT2046_Touchscreen {
+public:
+	constexpr XPT2046_Touchscreen(uint8_t cspin, uint8_t tirq=255)
+		: csPin(cspin), tirqPin(tirq) { }
+	bool begin(SPIClass &wspi = SPI); // Added parameters for begin()
+//Added the following
+#if defined(__FLEXIO_SPI_H_)
+  bool begin(FlexIOSPI &wflexspi);
+#endif
+// End
+
+	TS_Point getPoint();
+	bool tirqTouched();
+	bool touched();
+	void readData(uint16_t *x, uint16_t *y, uint8_t *z);
+	bool bufferEmpty();
+	uint8_t bufferSize() { return 1; }
+	void setRotation(uint8_t n) { rotation = n % 4; }
+// protected:
+	volatile bool isrWake=true;
+
+private:
+	void update();
+	uint8_t csPin, tirqPin, rotation=1;
+	int16_t xraw=0, yraw=0, zraw=0;
+	uint32_t msraw=0x80000000;
+// Added the following
+  SPIClass *_pspi = nullptr;
+#if defined(_FLEXIO_SPI_H_)
+  FlexIOSPI *_pflexspi = nullptr;
+#endif
+// End
+};
+```
